@@ -24,9 +24,13 @@ update is a conscious PR that bumps the pin.
 | Subdir | Host | What |
 |---|---|---|
 | `arr-stack/` | robstinybox | The *arr media-automation fleet (sabnzbd, prowlarr, sonarr, radarr, lazylibrarian, audiobookshelf, seerr) -- SQLite configs on the box NVMe (`${APPDATA_ROOT}`), media over NFS (`${MEDIA_ROOT}`). Cutover runbook: Tech-Learning/Wave1-arr-Cutover. |
+| `docker-ro-proxy/` | nas + robstinybox | GET-only docker socket proxy so the fleet cockpit can read container state on every fleet host, not just the one it runs on. Design: Tech-Learning/Fleet-Cockpit-Multihost-Docker. |
 
 ## Host checkout
 
 Cloned once by hand per host (selfsync never clones), then selfsync keeps
 it current: on robstinybox,
 `sudo -u svc git clone http://forgejo.nas/robg/fleet-vendor-stacks.git /home/svc/mainline/fleet-vendor-stacks`.
+The NAS also needs its own checkout, at
+`/volume1/homes/Rob/mainline/fleet-vendor-stacks`, cloned from
+`http://localhost:3001/robg/fleet-vendor-stacks.git` on the NAS.

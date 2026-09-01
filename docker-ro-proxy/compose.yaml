@@ -1,0 +1,71 @@
+# docker-ro-proxy -- a read-only docker socket proxy deployed on EVERY fleet
+# host (NAS = robsbigdisk, robstinybox = "the box"), so the fleet cockpit can
+# read container state fleet-wide instead of only the NAS's docker via
+# claude-remote-host's internal control proxy. Deployed by the unified engine
+# (dagu-dags/scripts/fleet_deploy.py) like every stack in this repo: a
+# registry.yaml entry with a deploy: {stack_dir: docker-ro-proxy} block, verb
+# `docker compose --env-file ~/fleet.env up -d --build`.
+#
+# Two per-host values live in each host's existing ~/fleet.env:
+#   DOCKER_GID        -- host docker group gid, so the non-root haproxy user
+#                         can read the ro-mounted socket. NAS: 65536.
+#                         robstinybox: 989.
+#   DOCKER_RO_BIND_IP -- the IP this proxy publishes 2375 on. robstinybox has
+#                         a real tailscale0 interface and binds it directly:
+#                         100.76.220.3. The NAS's tailscaled runs
+#                         --tun=userspace-networking, so its tailnet IP
+#                         (100.93.26.74) is NOT a local interface and cannot
+#                         be bound -- inbound tailnet traffic is delivered to
+#                         127.0.0.1 instead, so the NAS value is 127.0.0.1
+#                         (reachable from other tailnet devices at
+#                         100.93.26.74:2375, but NOT on the LAN IP
+#                         192.168.1.200). See Obsidian
+#                         Tech-Learning/Fleet-Cockpit-Multihost-Docker.
+#
+# The cockpit, when it runs on the SAME host as this proxy, joins the
+# docker-ro network below (declared external in the cockpit's compose) and
+# talks to it as tcp://docker-ro-proxy:2375. A cockpit reading a REMOTE host
+# goes over the tailnet at tcp://<DOCKER_RO_BIND_IP>:2375 instead.
+services:
+  docker-ro-proxy:
+    build:
+      context: .
+    image: docker-ro-proxy:latest
+    container_name: docker-ro-proxy
+    restart: unless-stopped
+
+    # Host docker group so the non-root haproxy user can read the socket
+    # (root:docker 660). Per host -- set in ~/fleet.env.
+    group_add:
+      - "${DOCKER_GID:?set DOCKER_GID in ~/fleet.env}"
+
+    # Published only on the tailnet-reachable IP for this host (see header) --
+    # never on the LAN interface.
+    ports:
+      - "${DOCKER_RO_BIND_IP:?set DOCKER_RO_BIND_IP in ~/fleet.env}:2375:2375"
+
+    # Same hardening posture as claude-remote-host's control proxy. No root
+    # process anywhere in this service.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 64m
+
+    volumes:
+      # Read-only socket: the proxy filters requests, and even the proxy
+      # itself cannot be tricked into rebinding or replacing the socket.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    networks:
+      - docker-ro
+
+networks:
+  # External name so the cockpit's own compose can join it (`external: true`)
+  # and reach this proxy at tcp://docker-ro-proxy:2375 without publishing a
+  # port for same-host traffic.
+  docker-ro:
+    name: docker-ro
