@@ -1,0 +1,82 @@
+# arr-stack -- the *arr SQLite fleet, a no-build vendor compose in
+# fleet-vendor-stacks. Deployed by the unified engine (no image: block; the
+# deploy: block in registry.yaml points here). Verb: docker compose
+# --env-file ~/fleet.env up -d --build (--build is a no-op here -- no Dockerfile).
+# APPDATA_ROOT = local NVMe config/SQLite; MEDIA_ROOT = NAS /volume1/data over NFS
+# (one tree, so SABnzbd->*arr hardlinks stay intra-mount). PUID/PGID keep NAS ownership.
+networks:
+  arr-net:
+    name: arr-net
+    driver: bridge
+services:
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:4.5.5-ls245
+    container_name: sabnzbd
+    restart: unless-stopped
+    ports: ["8085:8080"]
+    environment: [PUID=1026, PGID=100, TZ=America/New_York, UMASK=002]
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/arr-stack/sabnzbd/config:/config
+      - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}:/data
+    networks: [arr-net]
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:2.3.0.5236-ls137
+    container_name: prowlarr
+    restart: unless-stopped
+    ports: ["9696:9696"]
+    environment: [PUID=1026, PGID=100, TZ=America/New_York]
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/arr-stack/prowlarr/config:/config
+    networks: [arr-net]
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:4.0.16.2944-ls303
+    container_name: sonarr
+    restart: unless-stopped
+    ports: ["8989:8989"]
+    environment: [PUID=1026, PGID=100, TZ=America/New_York, UMASK=002]
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/arr-stack/sonarr/config:/config
+      - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}:/data
+    networks: [arr-net]
+  radarr:
+    image: lscr.io/linuxserver/radarr:6.0.4.10291-ls294
+    container_name: radarr
+    restart: unless-stopped
+    ports: ["7878:7878"]
+    environment: [PUID=1026, PGID=100, TZ=America/New_York, UMASK=002]
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/arr-stack/radarr/config:/config
+      - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}:/data
+    networks: [arr-net]
+  lazylibrarian:
+    image: lscr.io/linuxserver/lazylibrarian:e7c7ce2d-ls262
+    container_name: lazylibrarian
+    restart: unless-stopped
+    ports: ["5299:5299"]
+    environment: [PUID=1026, PGID=100, TZ=America/New_York, UMASK=002]
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/arr-stack/lazylibrarian/config:/config
+      - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}:/data
+    networks: [arr-net]
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:2.32.1
+    container_name: audiobookshelf
+    restart: unless-stopped
+    ports: ["13378:80"]
+    environment: [TZ=America/New_York]
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/arr-stack/audiobookshelf/config:/config
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/arr-stack/audiobookshelf/metadata:/metadata
+      - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}/media/audiobooks:/audiobooks
+      - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}/media/books:/books
+    networks: [arr-net]
+  seerr:
+    image: ghcr.io/seerr-team/seerr:v3.1.0
+    container_name: seerr
+    restart: unless-stopped
+    ports: ["5055:5055"]
+    environment: [TZ=America/New_York]
+    volumes:
+      # on-disk dir name is jellyseerr/config -- keep it (migrated as-is from the NAS)
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/arr-stack/jellyseerr/config:/app/config
+    networks: [arr-net]
