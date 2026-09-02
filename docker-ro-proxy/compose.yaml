@@ -10,9 +10,10 @@
 #   DOCKER_GID        -- host docker group gid, so the non-root haproxy user
 #                         can read the ro-mounted socket. NAS: 65536.
 #                         robstinybox: 989.
-#   DOCKER_RO_BIND_IP -- the IP this proxy publishes 2375 on. robstinybox has
-#                         a real tailscale0 interface and binds it directly:
-#                         100.76.220.3. The NAS's tailscaled runs
+#   DOCKER_RO_BIND_IP -- the IP this proxy publishes 2375 on. robstinybox
+#                         binds its LAN IP 192.168.1.201: its reader (the
+#                         cockpit on the NAS) can't dial tailnet IPs, because
+#                         the NAS's tailscaled runs
 #                         --tun=userspace-networking, so its tailnet IP
 #                         (100.93.26.74) is NOT a local interface and cannot
 #                         be bound -- inbound tailnet traffic is delivered to

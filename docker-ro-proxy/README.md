@@ -27,23 +27,26 @@ allow/deny list, and Obsidian
 | Var | NAS (robsbigdisk) | robstinybox ("the box") |
 |---|---|---|
 | `DOCKER_GID` | `65536` | `989` |
-| `DOCKER_RO_BIND_IP` | `127.0.0.1` | `100.76.220.3` |
+| `DOCKER_RO_BIND_IP` | `127.0.0.1` | `192.168.1.201` |
 
 **NAS quirk**: Tailscale on the NAS runs `--tun=userspace-networking`, so its
 tailnet IP `100.93.26.74` is not a local interface and cannot be bound.
 Inbound tailnet connections are delivered by `tailscaled` to
 `127.0.0.1:2375`, so the NAS proxy binds loopback and is reachable from other
 tailnet devices at `100.93.26.74:2375` -- but is **not** reachable on the LAN
-IP `192.168.1.200`. robstinybox has a real `tailscale0` interface
-(`100.76.220.3`) and binds it directly.
+IP `192.168.1.200`. And the same mode cannot dial OUT to tailnet IPs (verified: from the NAS,
+`100.76.220.3` routes out eth0 and times out), so the box proxy binds its
+**LAN IP `192.168.1.201`** -- the cockpit on the NAS reads it over the LAN,
+the same way it already reads dagu and forgejo. A cockpit running on the box
+would instead read the NAS over the tailnet (the box has a real `tailscale0`).
 
 ## Exposure posture
 
 - GET-only at the proxy (see `haproxy-docker-ro.cfg`) -- no POST/PUT/DELETE
   path exists, so even a fully-trusted `DOCKER_HOST` env var pointed at this
   proxy cannot restart, create, or exec into anything.
-- Bound only to a tailnet-reachable address per host (see table above) --
-  never the LAN interface.
+- NAS: bound to loopback (tailnet-reachable only, never the LAN). Box: bound
+  to its LAN IP, read-only -- the same LAN posture as dagu/forgejo on the NAS.
 - Runs as the official HAProxy image's non-root `haproxy` user; the socket
   is mounted `:ro`; `read_only: true`, `cap_drop: ALL`,
   `no-new-privileges`, no published ports beyond the one bind.
@@ -70,12 +73,12 @@ entry.
 
 ## Allow/deny verification battery
 
-Run from the Mac against each host's tailnet IP. `H=100.93.26.74` for the
-NAS, `H=100.76.220.3` for robstinybox. Pick a real, currently-running
+Run against each host's bound address: from the Mac, `H=100.93.26.74` for
+the NAS (tailnet); from a LAN device, `H=192.168.1.201` for robstinybox. Pick a real, currently-running
 container `NAME` on that host for the per-container checks.
 
 ```bash
-H=100.93.26.74   # then repeat with H=100.76.220.3
+H=100.93.26.74   # then repeat with H=192.168.1.201 (from the LAN)
 NAME=sonarr      # any running container on that host
 
 # --- ALLOWED (expect 200) ---
@@ -107,11 +110,11 @@ docker -H tcp://$H:2375 restart "$NAME"    # denied (403 from the proxy)
 
 ### Binding checks
 
-The proxy must **not** be reachable on either host's LAN IP:
+The NAS proxy must **not** be reachable on its LAN IP (the box's is LAN-bound
+by design, see above):
 
 ```bash
 curl -s -m 3 -o /dev/null -w "%{http_code}\n" http://192.168.1.200:2375/_ping || echo "refused (expected)"
-curl -s -m 3 -o /dev/null -w "%{http_code}\n" http://192.168.1.201:2375/_ping || echo "refused (expected)"
 ```
 
 On the NAS itself, loopback answers -- this is expected, it's how userspace
