@@ -51,6 +51,23 @@ would instead read the NAS over the tailnet (the box has a real `tailscale0`).
   is mounted `:ro`; `read_only: true`, `cap_drop: ALL`,
   `no-new-privileges`, no published ports beyond the one bind.
 
+## Accepted residual: `inspect` shows container env
+
+Anyone who can reach a proxy can read every container's env vars via
+`GET /containers/{id}/json`. Audited 2026-09-01 on the box (LAN-bound): all
+11 containers carry only image boilerplate (PATH/TZ/PUID/versions; the one
+secret-looking key, `GPG_KEY`, is the python image's public signing-key
+fingerprint). Real secrets in this fleet are mounted files under `/secrets`,
+never `environment:`. **Keep it that way** -- re-run the audit if a stack
+ever passes a secret via env:
+
+```bash
+B=http://192.168.1.201:2375   # or http://100.93.26.74:2375 for the NAS
+for c in $(curl -s $B/containers/json?all=1 | grep -o '"Names":\["/[^"]*' | cut -d/ -f2); do
+  echo "== $c"; curl -s $B/containers/$c/json | grep -oiE '"[A-Z_]*(PASS|SECRET|TOKEN|KEY|CRED)[A-Z_]*=' | sort -u
+done
+```
+
 ## First deploy
 
 **NAS** (from `/volume1/homes/Rob/mainline/fleet-vendor-stacks`):
