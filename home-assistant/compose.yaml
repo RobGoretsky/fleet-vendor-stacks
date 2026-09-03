@@ -1,0 +1,55 @@
+# home-assistant -- the household smart-home stack, a no-build vendor
+# compose in fleet-vendor-stacks, deployed on robstinybox by the unified
+# engine (no image: block on the stack itself; the deploy: block in
+# registry.yaml points here). Verb: docker compose --env-file ~/fleet.env
+# up -d --build (--build is a no-op -- no Dockerfile in this stack).
+#
+# Three services, all on network_mode: host:
+#   homeassistant -- the HA core. Host network because its integrations
+#     (HomeKit controller, Sonos, Chromecast) rely on mDNS/SSDP discovery
+#     on the LAN, which a bridge network can't pass through.
+#   mosquitto -- the MQTT broker HA and ring-mqtt talk to at
+#     localhost:1883. Host network so "localhost" means the same host as
+#     homeassistant and ring-mqtt; see mosquitto.conf for the loopback-only
+#     listener (reproduces the NAS's default-config behavior exactly).
+#   ring-mqtt -- bridges Ring devices into MQTT. Host network for the same
+#     localhost:1883 reason, plus go2rtc (bundled) needs LAN access for
+#     camera streams.
+#
+# APPDATA_ROOT = local box NVMe config (HA config git checkout, ring-mqtt
+# state, mosquitto data). MEDIA_ROOT = NAS /volume1/data over NFS -- used
+# only for HA's own Settings > Backups archives, so they land on
+# redundant NAS disk instead of the box's single NVMe.
+#
+# Ownership: everything under APPDATA_ROOT is chown -R svc:svc after the
+# one-time migration copy (see README.md); HA runs as root *inside* its
+# container regardless, so container-side ownership is unaffected.
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.1.2
+    container_name: homeassistant
+    restart: unless-stopped
+    network_mode: host
+    privileged: false
+    environment: [TZ=America/New_York]
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+      - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}/backups/home-assistant:/config/backups
+  mosquitto:
+    image: eclipse-mosquitto:2.0.14
+    container_name: mosquitto
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/mosquitto:/mosquitto/data
+  ring-mqtt:
+    image: tsightler/ring-mqtt:5.9.2
+    container_name: ring-mqtt
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - mosquitto
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/ring-mqtt:/data

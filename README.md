@@ -9,11 +9,14 @@ over someone else's images, it belongs here
 
 Each stack is deployed by the unified engine
 (`dagu-dags/scripts/fleet_deploy.py`): its registry entry in
-`dagu-dags/registry.yaml` carries `checkout.<host>` = this repo's checkout
-path plus a `deploy: {stack_dir: <subdir>}` block, and the engine runs
-`docker compose --env-file ~/fleet.env up -d --build` from the subdir
-whenever the last commit touching it moves. Change detection is per
-subdir -- a tweak to one stack never restarts its neighbors.
+`dagu-dags/registry.yaml` carries a `deploy: {compose: <subdir>/compose.yaml}`
+block (path relative to this repo's checkout on the target host), and the
+engine runs `docker compose --env-file ~/fleet.env up -d --build` from the
+compose's directory whenever the last commit touching it moves. Change
+detection is per subdir -- a tweak to one stack never restarts its
+neighbors. `fleet-deploy` clones this repo into every host's checkout
+itself the moment a registry entry needs it there -- nothing to clone by
+hand.
 
 **Pinned-tags rule**: every upstream image pins an exact tag (never
 `:latest`). A git merge is the only thing that changes what runs; an
@@ -25,12 +28,12 @@ update is a conscious PR that bumps the pin.
 |---|---|---|
 | `arr-stack/` | robstinybox | The *arr media-automation fleet (sabnzbd, prowlarr, sonarr, radarr, lazylibrarian, audiobookshelf, seerr) -- SQLite configs on the box NVMe (`${APPDATA_ROOT}`), media over NFS (`${MEDIA_ROOT}`). Cutover runbook: Tech-Learning/Wave1-arr-Cutover. |
 | `docker-ro-proxy/` | nas + robstinybox | GET-only docker socket proxy so the fleet cockpit can read container state on every fleet host, not just the one it runs on. Design: Tech-Learning/Fleet-Cockpit-Multihost-Docker. |
+| `home-assistant/` | robstinybox | Home Assistant core + mosquitto (MQTT, loopback-only) + ring-mqtt, migrated from the NAS. Config is a git checkout on `${APPDATA_ROOT}`, backups on NFS `${MEDIA_ROOT}`. Cutover runbook: Tech-Learning/Wave3-HA-Cutover. |
+| `adguard-home/` | nas | Fleet DNS server, host network (deletes the docker-proxy UDP hairpin so containers can resolve fleet names). Cutover runbook: Tech-Learning/Wave3-HA-Cutover §B. |
 
 ## Host checkout
 
-Cloned once by hand per host (selfsync never clones), then selfsync keeps
-it current: on robstinybox,
-`sudo -u svc git clone http://forgejo.nas/robg/fleet-vendor-stacks.git /home/svc/mainline/fleet-vendor-stacks`.
-The NAS also needs its own checkout, at
-`/volume1/homes/Rob/mainline/fleet-vendor-stacks`, cloned from
-`http://localhost:3001/robg/fleet-vendor-stacks.git` on the NAS.
+`fleet-deploy` clones this repo into a host's `$MAINLINE_ROOT` itself the
+first time a registry entry on that host needs it, and keeps it current
+on every later run (ff-only pull) -- there's no per-host checkout step or
+`checkout.<host>` field to maintain by hand.

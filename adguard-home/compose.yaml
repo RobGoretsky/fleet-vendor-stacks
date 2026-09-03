@@ -1,0 +1,26 @@
+# adguard-home -- fleet DNS server, a no-build vendor compose in
+# fleet-vendor-stacks, deployed on the NAS by the unified engine (no
+# image: block on the stack itself; the deploy: block in registry.yaml
+# points here). Verb: docker compose --env-file ~/fleet.env up -d --build
+# (--build is a no-op -- no Dockerfile in this stack).
+#
+# network_mode: host (moved off bridge+published-ports 2026-09) -- deletes
+# the docker-proxy UDP hairpin bug that keeps containers on the NAS from
+# resolving fleet .rig/.nas/.box names through it. Standard move for a DNS
+# server; AdGuard is already reached via the host's own IP, so host mode
+# just removes a NAT hop, not a capability.
+#
+# In host mode the web UI's http.address must be 8088 (not the bridge-mode
+# default 80/8088 port-mapping) so adguard.nas:8088 keeps resolving --
+# see AdGuardHome.yaml's http.address, edited as part of this cutover
+# (dns-manager skill has the docker cp procedure). Cutover steps + the DNS
+# flip itself: Obsidian Tech-Learning/Wave3-HA-Cutover §B.
+services:
+  adguardhome:
+    image: adguard/adguardhome:v0.107.79
+    container_name: adguardhome
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/adguardhome/work:/opt/adguardhome/work
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/adguardhome/conf:/opt/adguardhome/conf
