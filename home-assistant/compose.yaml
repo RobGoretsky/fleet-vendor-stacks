@@ -17,16 +17,16 @@
 #     camera streams.
 #
 # APPDATA_ROOT = local box NVMe config (HA config git checkout, ring-mqtt
-# state, mosquitto data). MEDIA_ROOT = NAS /volume1/data over NFS -- used
-# only for HA's own Settings > Backups archives, so they land on
-# redundant NAS disk instead of the box's single NVMe.
+# state). MEDIA_ROOT = NAS /volume1/data over NFS -- HA's own Settings >
+# Backups archives land there (redundant NAS disk, not the box's single
+# NVMe), and the kitchen photo pool is read from there (see below).
 #
 # Ownership: everything under APPDATA_ROOT is chown -R svc:svc after the
 # one-time migration copy (see README.md); HA runs as root *inside* its
 # container regardless, so container-side ownership is unaffected.
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:2026.1.2
+    image: homeassistant/home-assistant:2026.1.2
     container_name: homeassistant
     restart: unless-stopped
     network_mode: host
@@ -36,6 +36,11 @@ services:
       - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/homeassistant:/config
       - /etc/localtime:/etc/localtime:ro
       - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}/backups/home-assistant:/config/backups
+      # Kitchen photo pool: written hourly by the NAS DAG refresh-kitchen-photos
+      # (it needs psql inside Immich's postgres container, so it stays on the
+      # NAS) into the NAS-local ${MEDIA_ROOT} tree; HA reads it here over NFS
+      # as /local/photos/. Read-only from HA's side.
+      - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}/homeassistant/www-photos:/config/www/photos:ro
   mosquitto:
     image: eclipse-mosquitto:2.0.14
     container_name: mosquitto
@@ -43,7 +48,6 @@ services:
     network_mode: host
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/mosquitto:/mosquitto/data
   ring-mqtt:
     image: tsightler/ring-mqtt:5.9.2
     container_name: ring-mqtt
