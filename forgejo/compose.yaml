@@ -1,0 +1,105 @@
+# forgejo -- THE gate host: origin for every gated repo, branch protection,
+# the claude-bot account, the push-mirrors to the GitHub twins, and the two
+# system webhooks that fire `fleet-deploy` on both hosts. A no-build vendor
+# compose in fleet-vendor-stacks, deployed on robstinybox by the unified
+# engine (no image: block on the stack itself; the deploy: block in
+# registry.yaml points here). Verb: docker compose --env-file ~/fleet.env
+# up -d --build (--build is a no-op -- no Dockerfile in this stack).
+#
+# This is a one-time MIGRATION of the NAS's hand-installed appliance
+# (/volume1/docker/forgejo/docker-compose.yml, never git-tracked), not a
+# fresh install. Everything that is NOT in the GitHub mirrors -- users,
+# tokens, branch protection, the webhooks, the push-mirror rows and their
+# credentials -- lives in the data dir, so the data-dir copy IS the
+# migration. Cutover runbook: Obsidian Tech-Learning/Wave5-Forgejo-Cutover.
+#
+# WHY user: "3000:3000" AND NOT USER_UID/USER_GID
+# -----------------------------------------------
+# The *rootless* image has no USER_UID/USER_GID support: its config declares
+# `User: "1000:1000"` and its docker-setup.sh only mkdir/chmods -- it never
+# reads those vars and never chowns (verified against the published image
+# config + entrypoint layer for 16.0.3-rootless, 2026-09-09). Those env vars
+# belong to the *root* image variant, which we are deliberately not switching
+# to (different data layout: /data, not /var/lib/gitea -- a second migration
+# inside this one). Running the box's plane as svc (uid/gid 3000) is the
+# ruling in Tech-Learning/Fleet-Migration §Identity & path model, and on the
+# rootless image the supported way to get there is compose's `user:` plus a
+# data dir owned by that uid. The cutover's `chown -R svc:svc` is the other
+# half of this line -- neither works without the other.
+#
+# WHERE app.ini LIVES: the image sets GITEA_APP_INI=/var/lib/gitea/custom/
+# conf/app.ini -- INSIDE the single bind mount below. There is no /etc/gitea
+# volume in this variant, so SECRET_KEY, INTERNAL_TOKEN and the JWT secrets
+# all ride the data copy. `environment-to-ini` rewrites the FORGEJO__* keys
+# below into that file on every start (it only ever adds/overwrites keys --
+# dropping a var later does NOT remove the key it wrote).
+#
+# PUSH MIRRORS ARE NOT CONFIGURED HERE. The NAS compose carries no
+# mirror-related env, and there is none to add: Forgejo keeps push mirrors as
+# rows in its own DB plus a `push_mirror_<id>` git remote (with the
+# forgejo-mirror PAT in the URL) inside each bare repo. Both are under the
+# data dir -- they ride the copy, and the only post-cutover requirement is
+# that the box can reach github.com. Verified at cutover, not configured.
+services:
+  forgejo:
+    # Pinned per the fleet's pinned-tags rule. The NAS ran the floating
+    # `16-rootless`; as of 2026-09-09 both tags resolve to the same digest
+    # (sha256:72760827...e034e), so pinning is a no-op today and an upgrade
+    # becomes a conscious PR from here on.
+    image: codeberg.org/forgejo/forgejo:16.0.3-rootless
+    container_name: forgejo
+    restart: unless-stopped
+
+    # See the header. Requires ${APPDATA_ROOT}/forgejo/data owned by svc.
+    user: "3000:3000"
+
+    environment:
+      - TZ=America/New_York
+      # Unchanged from the NAS: forgejo.nas is embedded in every gated git
+      # remote and in registry.yaml, and stays as the permanent retained
+      # alias (Rig-DNS-Staging-Pack §F). ROOT_URL must keep matching it.
+      - FORGEJO__server__ROOT_URL=http://forgejo.nas/
+      - FORGEJO__server__HTTP_PORT=3000
+      - FORGEJO__server__DOMAIN=forgejo.nas
+      # THE line the CD trigger depends on. Default is `external`, which
+      # denies every private/LAN target with "webhook can only call allowed
+      # HTTP servers" -- silently reverting the fleet to the 5-minute cron.
+      # 192.168.1.200 = NAS dagu (binds 0.0.0.0:8181, dialed by IP);
+      # dagu.box  = box dagu (binds 127.0.0.1:8181, so its hook goes through
+      #             the box's nginx by name, resolved by extra_hosts below);
+      # 192.168.1.201 = what dagu.box resolves to, allowlisted as well since
+      #             Forgejo checks the resolved address too.
+      # An env change here needs `up -d`, not `restart`.
+      - FORGEJO__webhook__ALLOWED_HOST_LIST=192.168.1.200,192.168.1.201,dagu.box
+    extra_hosts:
+      # Still correct after the move, but it now means something different:
+      # a container on the box reaching its OWN host's nginx over the bridge.
+      # Pre-verified 2026-09-09 from the claude-remote-host container (same
+      # bridge, same host): curl -H "Host: dagu.box" http://192.168.1.201/
+      # -> 200. Re-confirm from this container at cutover anyway.
+      - "dagu.box:192.168.1.201"
+
+    volumes:
+      # The whole migration in one line. Ports and paths INSIDE the container
+      # are unchanged from the NAS, so nothing in app.ini has to be edited --
+      # only the host side of this mount differs.
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/forgejo/data:/var/lib/gitea
+
+    ports:
+      # Identical to the NAS -- the DNS pack's rule is that a service's port
+      # stays the same across hosts, because both hosts carry the same nginx
+      # `forgejo.rig forgejo.nas -> localhost:3001` block and a cutover is a
+      # pure AdGuard rewrite flip.
+      - "3001:3000"
+      # Forgejo's built-in SSH server. Unused by the fleet (every gated remote
+      # is http://forgejo.nas/...), kept for parity so a copied app.ini that
+      # advertises it is not lying.
+      - "2222:2222"
+
+    networks:
+      - forgejo-net
+
+networks:
+  forgejo-net:
+    name: forgejo-net
+    driver: bridge

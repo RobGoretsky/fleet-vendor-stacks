@@ -30,6 +30,7 @@ update is a conscious PR that bumps the pin.
 | `docker-ro-proxy/` | nas + robstinybox | GET-only docker socket proxy so the fleet cockpit can read container state on every fleet host, not just the one it runs on. Design: Tech-Learning/Fleet-Cockpit-Multihost-Docker. |
 | `home-assistant/` | robstinybox | Home Assistant core + mosquitto (MQTT, loopback-only) + ring-mqtt, migrated from the NAS. Config is a git checkout on `${APPDATA_ROOT}`, backups on NFS `${MEDIA_ROOT}`. Cutover runbook: Tech-Learning/Wave3-HA-Cutover. |
 | `adguard-home/` | nas | Fleet DNS server, host network (deletes the docker-proxy UDP hairpin so containers can resolve fleet names). Cutover runbook: Tech-Learning/Wave3-HA-Cutover §B. |
+| `forgejo/` | robstinybox | The fleet's git gate -- origin for every gated repo, branch protection, `claude-bot`, the push-mirrors to the GitHub twins, and the system webhooks that fire `fleet-deploy`. Migrated from the NAS's untracked appliance compose; the data dir is the migration. Cutover runbook: Tech-Learning/Wave5-Forgejo-Cutover. |
 
 ## Host checkout
 
