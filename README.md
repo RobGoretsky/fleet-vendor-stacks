@@ -31,6 +31,7 @@ update is a conscious PR that bumps the pin.
 | `home-assistant/` | robstinybox | Home Assistant core + mosquitto (MQTT, loopback-only) + ring-mqtt, migrated from the NAS. Config is a git checkout on `${APPDATA_ROOT}`, backups on NFS `${MEDIA_ROOT}`. Cutover runbook: Tech-Learning/Wave3-HA-Cutover. |
 | `adguard-home/` | nas | Fleet DNS server, host network (deletes the docker-proxy UDP hairpin so containers can resolve fleet names). Cutover runbook: Tech-Learning/Wave3-HA-Cutover §B. |
 | `forgejo/` | robstinybox | The fleet's git gate -- origin for every gated repo, branch protection, `claude-bot`, the push-mirrors to the GitHub twins, and the system webhooks that fire `fleet-deploy`. Migrated from the NAS's untracked appliance compose; the data dir is the migration. Cutover runbook: Tech-Learning/Wave5-Forgejo-Cutover. |
+| `music-assistant/` | robstinybox | Playback layer (Spotify, nugs.net, Phish.in, Sonos) for the household dashboards, host network for mDNS/Sonos discovery. State (`${APPDATA_ROOT}/music-assistant/data`) carried from the NAS by the wave-6 state-copy script; no music-library NFS mount -- MA has no filesystem provider configured. Migration record: Tech-Learning/Fleet-Centralization-Phase2. |
 
 ## Host checkout
 
