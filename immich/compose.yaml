@@ -1,0 +1,130 @@
+# immich -- family photo library. A no-build vendor compose in
+# fleet-vendor-stacks, deployed on robstinybox by the unified engine (no
+# image: block on the stack itself; the deploy: block in registry.yaml
+# points here). Verb: docker compose --env-file ~/fleet.env up -d --build
+# (--build is a no-op here -- no Dockerfile).
+#
+# Wave 8 of the fleet migration (Fleet-Centralization-Phase2 ruling 7):
+# compute (server, ML, Postgres, Redis) moves to the box's NVMe; the
+# upload library and both external photo libraries STAY on the NAS,
+# reached over NFS. Cutover runbook: Obsidian
+# Tech-Learning/Wave8-Immich-Cutover.
+#
+# WHY the storage split: 55 GB of uploads + Rob's and Pam's full external
+# libraries have nowhere to go but the NAS's RAID -- the box has one NVMe
+# and no redundancy story of its own yet. Postgres/Redis/ML are small,
+# fsync-heavy, and want to be off spinning NAS disk (the same reasoning
+# as wave 1's *arr SQLite move) -- so unlike wave 1's MEDIA_ROOT (one NAS
+# tree that's also the write target), here the box writes small hot state
+# locally and reads/writes big cold bytes over NFS.
+#
+# THE SILENT-DATA-LOSS TRAP: Immich has no built-in check that
+# UPLOAD_LOCATION (and the two external-library mounts) are real mounts
+# before it starts. If the box boots and the NFS mount hasn't come up yet,
+# Immich happily creates fresh empty directories on the box's local disk
+# under those paths and starts serving an EMPTY library -- no error, no
+# crash, just silent data loss until someone notices photos are missing
+# and the fresh uploads that happened in between are orphaned on local
+# disk. Two defenses, belt-and-braces:
+#   1. /etc/fstab uses x-systemd.automount (see README.md) -- the mount
+#      unit exists at boot but the actual NFS mount is deferred until
+#      first path access, and that FIRST ACCESS BLOCKS until the mount
+#      completes (or x-systemd.mount-timeout expires and the access fails
+#      loudly instead of silently). Compose's own bind-mount setup is
+#      that first access.
+#   2. `mount-guard`, a one-shot init container below that runs BEFORE
+#      immich-server/immich-machine-learning (via `depends_on: ...
+#      condition: service_completed_successfully`) and refuses to let the
+#      stack come up if any of the three paths isn't a real mount point.
+services:
+  mount-guard:
+    image: alpine:3.20
+    container_name: immich-mount-guard
+    volumes:
+      - ${IMMICH_UPLOAD_MOUNT:?set IMMICH_UPLOAD_MOUNT in ~/fleet.env}:/check/upload
+      - ${IMMICH_ROB_PHOTOS_MOUNT:?set IMMICH_ROB_PHOTOS_MOUNT in ~/fleet.env}:/check/rob-photos:ro
+      - ${IMMICH_PAM_PHOTOS_MOUNT:?set IMMICH_PAM_PHOTOS_MOUNT in ~/fleet.env}:/check/pam-photos:ro
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        for p in /check/upload /check/rob-photos /check/pam-photos; do
+          mountpoint -q "$$p" || { echo "REFUSING: $$p is not a real mount (NFS not up?)"; exit 1; }
+        done
+        echo "all three NFS mounts confirmed live"
+
+  redis:
+    image: docker.io/valkey/valkey:9@sha256:c123e3715db63d06d4ad6964884037aa0d5d4d703939b9929954112889708e1d
+    container_name: immich_redis
+    restart: unless-stopped
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/immich/redis:/data
+    networks: [immich-net]
+
+  database:
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+    container_name: immich_postgres
+    restart: unless-stopped
+    # DB_STORAGE_TYPE flips HDD -> SSD per Immich's own tuning guidance --
+    # this is box NVMe now, not NAS spinning disk.
+    environment:
+      - POSTGRES_USER=immich
+      - POSTGRES_DB=immich
+      - POSTGRES_PASSWORD_FILE=/run/secrets/immich-db-password
+      - POSTGRES_INITDB_ARGS=--data-checksums
+      - DB_STORAGE_TYPE=SSD
+      - TZ=America/New_York
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/immich/postgres:/var/lib/postgresql/data
+      - /home/svc/.secrets/immich-db-password:/run/secrets/immich-db-password:ro
+    shm_size: 128mb
+    networks: [immich-net]
+
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:v2.7.5@sha256:a2501141440f10516d329fdfba2c68082e19eb9ba6016c061ac80d23beadf7f3
+    container_name: immich_machine_learning
+    restart: unless-stopped
+    depends_on:
+      mount-guard:
+        condition: service_completed_successfully
+    environment:
+      - TZ=America/New_York
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/immich/model-cache:/cache
+    networks: [immich-net]
+
+  immich-server:
+    image: ghcr.io/immich-app/immich-server:v2.7.5@sha256:c15bff75068effb03f4355997d03dc7e0fc58720c2b54ad6f7f10d1bc57efaa5
+    container_name: immich_server
+    restart: unless-stopped
+    depends_on:
+      mount-guard:
+        condition: service_completed_successfully
+      database:
+        condition: service_started
+      redis:
+        condition: service_started
+      immich-machine-learning:
+        condition: service_started
+    environment:
+      - TZ=America/New_York
+      - DB_HOSTNAME=immich_postgres
+      - DB_USERNAME=immich
+      - DB_DATABASE_NAME=immich
+      - DB_PASSWORD_FILE=/run/secrets/immich-db-password
+      - REDIS_HOSTNAME=immich_redis
+    volumes:
+      - ${IMMICH_UPLOAD_MOUNT:?set IMMICH_UPLOAD_MOUNT in ~/fleet.env}:/data
+      - ${IMMICH_ROB_PHOTOS_MOUNT:?set IMMICH_ROB_PHOTOS_MOUNT in ~/fleet.env}:/mnt/photo:ro
+      - ${IMMICH_PAM_PHOTOS_MOUNT:?set IMMICH_PAM_PHOTOS_MOUNT in ~/fleet.env}:/mnt/pam-photos:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /home/svc/.secrets/immich-db-password:/run/secrets/immich-db-password:ro
+    ports:
+      - "2283:2283"
+    networks: [immich-net]
+
+networks:
+  immich-net:
+    name: immich-net
+    driver: bridge
