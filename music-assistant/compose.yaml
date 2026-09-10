@@ -1,0 +1,41 @@
+# music-assistant -- playback layer (Spotify, nugs.net, Phish.in, Sonos)
+# for the household dashboards, a no-build vendor compose in
+# fleet-vendor-stacks, deployed on robstinybox by the unified engine
+# (no image: block on the stack itself; the deploy: block in
+# registry.yaml points here). Verb: docker compose --env-file ~/fleet.env
+# up -d --build (--build is a no-op -- no Dockerfile in this stack).
+#
+# network_mode: host is mandatory (not a stylistic match with the rest of
+# fleet-vendor-stacks' host-net members) -- Sonos/mDNS player discovery and
+# the "Home Assistant" provider (http://localhost:8123, same-host only)
+# both need it; a bridge network can't pass either through. Audio
+# streaming rides port 8097, auto-exposed by host networking alongside the
+# 8095 web UI (dns: only advertises 8095 -- 8097 is LAN-internal, players
+# reach it directly, no proxy hop).
+#
+# Pinned to :2.10.1, the version already running on the NAS (verified live
+# 2026-09-10, Home/Music-Assistant-Setup) -- not :latest, matching every
+# other fleet-vendor-stacks image.
+#
+# No music-library NFS mount: MA has no filesystem provider configured on
+# the NAS today (checked Home/Music-Assistant-Setup 2026-09-10) -- every
+# source is a streaming provider (Spotify, nugs.net, Phish.in) plus Sonos/
+# HA as player providers. The only persisted state is this container's own
+# ${APPDATA_ROOT}/music-assistant/data (provider auth, library index,
+# ~306 MB), carried by the wave-6 state-copy script. If Rob later adds a
+# local-file library, that's a new NFS export at cutover time, not
+# something to stage now.
+services:
+  music-assistant:
+    image: ghcr.io/music-assistant/server:2.10.1
+    container_name: music-assistant-server
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - SYS_ADMIN
+      - DAC_READ_SEARCH
+    security_opt:
+      - apparmor:unconfined
+    environment: [LOG_LEVEL=info]
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/music-assistant/data:/data
