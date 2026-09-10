@@ -1,0 +1,34 @@
+# nginx -- robstinybox's fleet-wide reverse proxy. A no-build vendor compose
+# in fleet-vendor-stacks, deployed by the unified engine (registry.yaml's
+# `nginx` entry). Verb: docker compose --env-file ~/fleet.env up -d --build
+# (--build is a no-op -- no Dockerfile in this stack).
+#
+# Replaces the box's hand-installed native nginx and every staged sudo
+# config paste (ruling 4, Tech-Learning/Fleet-Centralization-Phase2). The
+# per-app server blocks are NOT in this repo -- fleet_deploy.py renders them
+# into ${APPDATA_ROOT}/nginx/conf.d/*.conf on every run, from every registry
+# entry's `dns:` field plus a handful of hand-maintained static blocks
+# (.box, .family, the default-server catch-all). This file only carries the
+# static top-level nginx.conf (the http{} block, the websocket-upgrade map,
+# and the `include conf.d/*.conf`) and the container itself.
+#
+# network_mode: host, same reasoning as adguard-home's: nginx terminates
+# port 80 for the whole LAN/tailnet, so there is no "inside the container"
+# network to publish ports from -- it needs the host's own interface.
+#
+# PORT 80 CONFLICT WITH NATIVE NGINX (see the PR body / cutover note): this
+# container binds :80 on the host, same as the native nginx package it's
+# replacing. Until Rob's one sudo (`systemctl disable --now nginx`) after
+# this PR merges, the container's nginx process will fail to bind and
+# crash-loop under `restart: unless-stopped` -- harmless (no other service
+# is affected; native nginx keeps serving in the meantime) and self-healing
+# the moment native nginx stops, no second deploy needed.
+services:
+  nginx:
+    image: nginx:1.27.4-alpine
+    container_name: nginx
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/nginx/conf.d:/etc/nginx/conf.d:ro
