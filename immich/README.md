@@ -36,12 +36,16 @@ comment for the full failure mode). Two defenses:
    silently race an unmounted NFS export the way a plain `_netdev` fstab
    entry (wave 1's `/mnt/nasdata` convention) can on a slow boot.
 2. **`mount-guard`**, a one-shot init container in `compose.yaml` that
-   runs `mountpoint -q` against all three paths before `immich-server` or
-   `immich-machine-learning` are allowed to start (`depends_on: ...
-   condition: service_completed_successfully`). Belt-and-braces on top of
-   (1) -- if automount's blocking-first-access behavior ever doesn't fire
-   the way expected, this still refuses to come up on a wrong path
-   instead of writing to it.
+   checks all three paths' filesystem type (`stat -f -c %T` = `nfs`)
+   before `immich-server` or `immich-machine-learning` are allowed to
+   start (`depends_on: ... condition: service_completed_successfully`).
+   Belt-and-braces on top of (1) -- if automount's blocking-first-access
+   behavior ever doesn't fire the way expected, this still refuses to
+   come up on a wrong path instead of writing to it. It checks fstype,
+   not `mountpoint -q`: a bind mount is *always* reported as a mountpoint
+   from inside the container, even when the host-side directory behind
+   it is just an empty local dir with no NFS mounted -- `mountpoint -q`
+   would pass in exactly the silent-data-loss case it's meant to catch.
 
 Add to `/etc/fstab` (mirrors the `no_root_squash` / rw-vs-ro rows in
 Obsidian `Tech-Learning/Phase2-Sitting-1` §1; NFSv4.1 + `hard`, same as

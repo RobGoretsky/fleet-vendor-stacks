@@ -35,7 +35,14 @@
 #   2. `mount-guard`, a one-shot init container below that runs BEFORE
 #      immich-server/immich-machine-learning (via `depends_on: ...
 #      condition: service_completed_successfully`) and refuses to let the
-#      stack come up if any of the three paths isn't a real mount point.
+#      stack come up if any of the three paths isn't backed by NFS.
+#      NOTE: `mountpoint -q` does NOT work for this check from inside a
+#      container -- a bind mount is ALWAYS reported as a mountpoint by
+#      the container's own /proc/mounts, even when the host-side
+#      directory it's bound from is just an empty local dir (i.e. NFS
+#      never came up). The check has to look at the filesystem TYPE
+#      instead: `stat -f -c %T` reports `nfs` for a live NFS mount and
+#      something else (e.g. `ext2/ext3`, `tmpfs`) for a plain local dir.
 services:
   mount-guard:
     image: alpine:3.20
@@ -50,7 +57,8 @@ services:
       - |
         set -e
         for p in /check/upload /check/rob-photos /check/pam-photos; do
-          mountpoint -q "$$p" || { echo "REFUSING: $$p is not a real mount (NFS not up?)"; exit 1; }
+          fstype="$(stat -f -c %T "$$p")"
+          [ "$$fstype" = "nfs" ] || { echo "REFUSING: $$p is fstype '$$fstype', not nfs (NFS not up? bind mount is hiding an empty local dir)"; exit 1; }
         done
         echo "all three NFS mounts confirmed live"
 
