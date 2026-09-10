@@ -11,16 +11,20 @@
 #                         can read the ro-mounted socket. NAS: 65536.
 #                         robstinybox: 989.
 #   DOCKER_RO_BIND_IP -- the IP this proxy publishes 2375 on. robstinybox
-#                         binds its LAN IP 192.168.1.201: its reader (the
-#                         cockpit on the NAS) can't dial tailnet IPs, because
-#                         the NAS's tailscaled runs
-#                         --tun=userspace-networking, so its tailnet IP
-#                         (100.93.26.74) is NOT a local interface and cannot
-#                         be bound -- inbound tailnet traffic is delivered to
-#                         127.0.0.1 instead, so the NAS value is 127.0.0.1
-#                         (reachable from other tailnet devices at
-#                         100.93.26.74:2375, but NOT on the LAN IP
-#                         192.168.1.200). See Obsidian
+#                         binds its LAN IP 192.168.1.201. The NAS's
+#                         tailscaled runs --tun=userspace-networking, so its
+#                         tailnet IP (100.93.26.74) is NOT a local interface
+#                         and cannot be bound directly -- the original plan
+#                         here assumed inbound tailnet traffic gets delivered
+#                         to a 127.0.0.1 bind regardless, making it reachable
+#                         at 100.93.26.74:2375 from other tailnet devices.
+#                         **That assumption doesn't hold in practice**
+#                         (verified during Phase 2 wave 6 prep,
+#                         2026-09-10: tcp://100.93.26.74:2375 refuses). The
+#                         NAS value is instead its LAN IP, 192.168.1.200 --
+#                         same posture as robstinybox's own bind, and every
+#                         reader of this proxy (on either host) is on the
+#                         same LAN regardless of tailnet status. See Obsidian
 #                         Tech-Learning/Fleet-Cockpit-Multihost-Docker.
 #
 # The cockpit, when it runs on the SAME host as this proxy, joins the
