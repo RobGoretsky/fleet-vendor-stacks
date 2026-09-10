@@ -1,0 +1,46 @@
+# jellyfin -- media server, a no-build vendor compose in fleet-vendor-stacks.
+# Deployed by the unified engine (no image: block; the deploy: block in
+# registry.yaml points here). Verb: docker compose --env-file ~/fleet.env
+# up -d --build (--build is a no-op -- no Dockerfile in this stack).
+#
+# Wave 7 (Tech-Learning/Fleet-Centralization-Phase2): moved off the NAS,
+# Plex decommissioned alongside it (ruling 1) -- Jellyfin becomes the one
+# media server. Config is a one-time tar copy from the NAS
+# (/volume1/docker/arr-stack/jellyfin/config, staged in
+# Tech-Learning/Phase2-Sitting-1 §3); media is read over the box's existing
+# wave-1 NFS mount (${MEDIA_ROOT}, same tree arr-stack already reads), no
+# new NFS export needed. Bridge network + published ports (not host network)
+# to match arr-stack's convention -- nginx reaches it at 127.0.0.1:8096.
+#
+# PUID/PGID are svc's own (3000/3000), not the NAS's 1026/100 -- unlike
+# arr-stack, Jellyfin's config is NOT read over a shared-ownership NFS mount,
+# so there's no cross-host ownership constraint; the state-copy script
+# chowns the copied config to svc:svc (Phase2-Sitting-1 §3).
+#
+# /dev/dri (QuickSync HW transcode): the box's iGPU render node group GID
+# is unknown from inside this container (can't read the box's /etc/group),
+# so it's parameterized as RENDER_GID -- Rob sets it once via
+# `getent group render` (Phase2-Sitting-1 §4) before first deploy.
+#
+# Transcode temp: no separate cache volume. Jellyfin's default transcode
+# path lives under /config (see linuxserver docs), and /config is already
+# the APPDATA_ROOT bind below -- on the box's local NVMe -- so transcode
+# temp files land on NVMe automatically with no extra mount.
+services:
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:10.11.11ubu2404-ls37
+    container_name: jellyfin
+    restart: unless-stopped
+    ports: ["8096:8096", "7359:7359/udp"]
+    environment:
+      - PUID=3000
+      - PGID=3000
+      - TZ=America/New_York
+      - UMASK=002
+      - DOCKER_MODS=linuxserver/mods:jellyfin-opencl-intel
+    group_add:
+      - "${RENDER_GID:?set RENDER_GID in ~/fleet.env -- getent group render on the box}"
+    devices: ["/dev/dri:/dev/dri"]
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/jellyfin/config:/config
+      - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}/media:/data/media:ro
