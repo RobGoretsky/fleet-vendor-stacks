@@ -12,10 +12,10 @@
 # new NFS export needed. Bridge network + published ports (not host network)
 # to match arr-stack's convention -- nginx reaches it at 127.0.0.1:8096.
 #
-# PUID/PGID are svc's own (3000/3000), not the NAS's 1026/100 -- unlike
-# arr-stack, Jellyfin's config is NOT read over a shared-ownership NFS mount,
-# so there's no cross-host ownership constraint; the state-copy script
-# chowns the copied config to svc:svc (Phase2-Sitting-1 §3).
+# PUID/PGID are the NAS's 1026/100, same as arr-stack: the media mount is
+# NFS from /volume1/data/media, whose Synology ACL admits uid 1026 and not
+# svc (3000) -- as 3000 Jellyfin can't even stat /data/media (found at the
+# wave-7 cutover, 2026-09-11). The config dir must be owned 1026:100 too.
 #
 # /dev/dri (QuickSync HW transcode): the box's iGPU render node group GID
 # is unknown from inside this container (can't read the box's /etc/group),
