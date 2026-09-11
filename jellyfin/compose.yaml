@@ -33,8 +33,8 @@ services:
     restart: unless-stopped
     ports: ["8096:8096", "7359:7359/udp"]
     environment:
-      - PUID=3000
-      - PGID=3000
+      - PUID=1026   # NAS media identity: Synology ACL on /volume1/data/media admits uid 1026, not svc (3000) -- same as arr-stack
+      - PGID=100
       - TZ=America/New_York
       - UMASK=002
       - DOCKER_MODS=linuxserver/mods:jellyfin-opencl-intel
