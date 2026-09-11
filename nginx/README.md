@@ -60,3 +60,28 @@ See the PR body for the one-time copy (this replaces the box's old
 standalone `tls.conf`, which the original nginx-container cutover had
 dropped entirely -- nothing served `:443` on the box from that point until
 this PR).
+
+## Ad-hoc names (ruling 11)
+
+Any inner-loop container listening on `127.0.0.1:<port>` on robstinybox is
+reachable as `<anything>--<port>.rig` with **no registry entry and no PR** --
+`fleet_deploy.py` renders one extra static block, `_wildcard_rig.conf`, whose
+`server_name` is a regex (`~^(?<app>[a-z0-9-]+)--(?<port>\d{4,5})\.rig$`)
+that captures the port straight out of the hostname and proxies to it.
+nginx matches `server_name` exact names first, then wildcards, then regex
+last, so any real registered `dns:` name's own exact block always wins --
+this one only ever answers for a name nothing else claims. It depends on
+`Tech-Learning/Rig-DNS-Staging-Pack` §J's `*.rig` → box AdGuard wildcard
+rewrite to route the request here at all; a registered prototype instead
+gets a real name via the registry's `dns:` field (`robapp graduate` /
+`registry.yaml`), same as any other mover.
+
+**HTTP-only by design, permanently.** The `_wildcard_rig.conf` block still
+carries `listen 443 ssl;` for a uniform render, but it can never present a
+*valid* cert: the TLS leaf above enumerates its SANs explicitly from the
+registry, and an ad-hoc name has no registry entry to be enumerated from.
+So `https://<name>--<port>.rig` will complete a TLS handshake but fail
+hostname verification -- there is no path to a real cert for one of these
+names short of graduating it to a registered `dns:` entry and waiting for
+the next `fleet_ca.py --renew`. Treat `<name>--<port>.rig` as `http://`
+only.
