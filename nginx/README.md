@@ -38,3 +38,25 @@ it replaces, so it fails to bind and crash-loops (harmless,
 `restart: unless-stopped`) until Rob's one `sudo systemctl disable --now
 nginx` after this PR (and the registry PR wiring it into `deploy:`) land.
 See the compose file's header and the PR body for the ordering.
+
+## TLS
+
+`Home/Fleet-HTTPS` fronts every fleet name with HTTPS via a private CA --
+one leaf, ~22+ SANs, re-signed on the laptop whenever a name is added.
+`nginx.conf` sets `ssl_certificate`/`ssl_certificate_key` **once**, at the
+`http{}` level, so every rendered block in `conf.d/` inherits it with no
+per-block cert config -- `fleet_deploy.py`'s `_nginx_server_block()` just
+adds `listen 443 ssl;` next to `listen 80;` on every block (dynamic and
+static alike), plus the catch-all.
+
+The two files it points at --
+`/etc/nginx/fleet-tls/fleet.crt`/`fleet.key` inside the container, bind-mounted
+read-only from `${APPDATA_ROOT}/nginx/tls` on the host -- are **required,
+not optional**: nginx refuses to start at all if either is missing or
+unreadable. There is deliberately no port-80-only fallback (matching
+`Home/Fleet-HTTPS`'s design elsewhere), so landing those two files on the
+host is a precondition of this container coming up, not a nice-to-have.
+See the PR body for the one-time copy (this replaces the box's old
+standalone `tls.conf`, which the original nginx-container cutover had
+dropped entirely -- nothing served `:443` on the box from that point until
+this PR).

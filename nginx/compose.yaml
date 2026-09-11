@@ -8,9 +8,10 @@
 # per-app server blocks are NOT in this repo -- fleet_deploy.py renders them
 # into ${APPDATA_ROOT}/nginx/conf.d/*.conf on every run, from every registry
 # entry's `dns:` field plus a handful of hand-maintained static blocks
-# (.box, .family, the default-server catch-all). This file only carries the
-# static top-level nginx.conf (the http{} block, the websocket-upgrade map,
-# and the `include conf.d/*.conf`) and the container itself.
+# (.box, .family, the default-server catch-all), every one listening on
+# both :80 and :443 ssl. This file only carries the static top-level
+# nginx.conf (the http{} block, the TLS cert config, the websocket-upgrade
+# map, and the `include conf.d/*.conf`) and the container itself.
 #
 # network_mode: host, same reasoning as adguard-home's: nginx terminates
 # port 80 for the whole LAN/tailnet, so there is no "inside the container"
@@ -23,6 +24,14 @@
 # crash-loop under `restart: unless-stopped` -- harmless (no other service
 # is affected; native nginx keeps serving in the meantime) and self-healing
 # the moment native nginx stops, no second deploy needed.
+#
+# TLS (Home/Fleet-HTTPS): nginx.conf sets ssl_certificate/ssl_certificate_key
+# once at the http{} level, pointing at /etc/nginx/fleet-tls/fleet.{crt,key}
+# -- bind-mounted read-only from ${APPDATA_ROOT}/nginx/tls, NOT the native
+# nginx's old /etc/nginx/fleet-tls (that path died with native nginx). Those
+# two files are a hard requirement, not optional -- nginx will not start
+# without them, and there's no port-80-only fallback by design (see the PR
+# body for the one-time file copy).
 services:
   nginx:
     image: nginx:1.27.4-alpine
@@ -32,3 +41,4 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/nginx/tls:/etc/nginx/fleet-tls:ro
