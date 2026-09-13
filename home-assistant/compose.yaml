@@ -17,9 +17,9 @@
 #     camera streams.
 #
 # APPDATA_ROOT = local box NVMe config (HA config git checkout, ring-mqtt
-# state). MEDIA_ROOT = NAS /volume1/data over NFS -- HA's own Settings >
-# Backups archives land there (redundant NAS disk, not the box's single
-# NVMe), and the kitchen photo pool is read from there (see below).
+# state, and since wave 9 the kitchen photo pool). MEDIA_ROOT = NAS
+# /volume1/data over NFS -- HA's own Settings > Backups archives land there
+# (redundant NAS disk, not the box's single NVMe).
 #
 # Ownership: everything under APPDATA_ROOT is chown -R svc:svc after the
 # one-time migration copy (see README.md); HA runs as root *inside* its
@@ -36,11 +36,14 @@ services:
       - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/homeassistant:/config
       - /etc/localtime:/etc/localtime:ro
       - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}/backups/home-assistant:/config/backups
-      # Kitchen photo pool: written hourly by the NAS DAG refresh-kitchen-photos
-      # (it needs psql inside Immich's postgres container, so it stays on the
-      # NAS) into the NAS-local ${MEDIA_ROOT} tree; HA reads it here over NFS
-      # as /local/photos/. Read-only from HA's side.
-      - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}/homeassistant/www-photos:/config/www/photos:ro
+      # Kitchen photo pool: written hourly by the refresh-kitchen-photos DAG,
+      # which now runs alongside Immich's postgres container on this same
+      # box (both moved here at waves 8/9) -- so the pool moves box-local
+      # too, one NFS hop deleted (Phase 2 wave 9). Was
+      # ${MEDIA_ROOT}/homeassistant/www-photos (NAS NFS) through wave 8; Rob
+      # copies the current pool once (Phase2-Sitting-1 §6). Read-only from
+      # HA's side.
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/homeassistant/www-photos:/config/www/photos:ro
   mosquitto:
     image: eclipse-mosquitto:2.0.14
     container_name: mosquitto
