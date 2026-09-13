@@ -71,7 +71,7 @@ services:
       - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}/media/books:/books
     networks: [arr-net]
   seerr:
-    image: ghcr.io/seerr-team/seerr:v3.1.0
+    image: ghcr.io/seerr-team/seerr:v3.4.1
     container_name: seerr
     restart: unless-stopped
     ports: ["5055:5055"]
