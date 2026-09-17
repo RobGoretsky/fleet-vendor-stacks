@@ -28,9 +28,10 @@ workflow that came with it -- ruling 4 in
 `server_name` still carries both `foo.rig` and `foo.nas` -- the render
 derives the pair automatically from whichever one the registry's `dns:`
 field states, rather than needing both written out by hand. This is
-load-bearing, not cosmetic: `forgejo.nas` is embedded in every gated git
-remote and in `registry.yaml`'s own `repo:` fields until the
-`forgejo.rig` rename lands, and `dominion.nas` / `fleet.nas` are live
+load-bearing, not cosmetic: `forgejo.nas` is still in every git remote and
+credential entry that the 2026-09-16 `forgejo.rig` rename has not rebound
+yet (Tech-Learning/Forgejo-Rig-Rename -- its last step deletes that one
+alias, and only that one), and `dominion.nas` / `fleet.nas` are live
 registry `url:` values elsewhere.
 
 **Cutover**: this container binds host port 80, same as the native nginx

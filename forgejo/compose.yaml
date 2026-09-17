@@ -55,12 +55,26 @@ services:
 
     environment:
       - TZ=America/New_York
-      # Unchanged from the NAS: forgejo.nas is embedded in every gated git
-      # remote and in registry.yaml, and stays as the permanent retained
-      # alias (Rig-DNS-Staging-Pack §F). ROOT_URL must keep matching it.
-      - FORGEJO__server__ROOT_URL=http://forgejo.nas/
+      # The gate's canonical name. It was forgejo.nas until 2026-09-16 --
+      # honest on the NAS, a lie from wave 5 onward when the gate moved to
+      # the box. forgejo.rig is host-agnostic, already resolves, and is
+      # already on the same nginx server_name line as the alias, so this is
+      # a one-line flip with no DNS work. See Tech-Learning/Forgejo-Rig-Rename.
+      #
+      # forgejo.nas stays live as a retained alias until the runbook's dated
+      # alias-delete step: it is still in every git remote that has not been
+      # rebound yet. ROOT_URL only sets what Forgejo ADVERTISES (clone URLs,
+      # PR links, webhook payload `repository.html_url`) -- it does not
+      # restrict which Host headers it answers, so the alias keeps working
+      # unchanged the whole time.
+      #
+      # NOT the CD trigger. The two system webhooks' target URLs
+      # (192.168.1.200:8181, dagu.box) are rows in Forgejo's DB, and
+      # ALLOWED_HOST_LIST below is what gates them -- neither is derived
+      # from ROOT_URL. Verified after the flip per the runbook's smoke test.
+      - FORGEJO__server__ROOT_URL=http://forgejo.rig/
       - FORGEJO__server__HTTP_PORT=3000
-      - FORGEJO__server__DOMAIN=forgejo.nas
+      - FORGEJO__server__DOMAIN=forgejo.rig
       # THE line the CD trigger depends on. Default is `external`, which
       # denies every private/LAN target with "webhook can only call allowed
       # HTTP servers" -- silently reverting the fleet to the 5-minute cron.
@@ -87,12 +101,13 @@ services:
 
     ports:
       # Identical to the NAS -- the DNS pack's rule is that a service's port
-      # stays the same across hosts, because both hosts carry the same nginx
-      # `forgejo.rig forgejo.nas -> localhost:3001` block and a cutover is a
-      # pure AdGuard rewrite flip.
+      # stays the same across hosts. The box's nginx block carries both names
+      # on one server_name line -- fleet_deploy.py's render derives the .nas
+      # alias from the registry's `dns: forgejo.rig:3001` -- so the rename
+      # needed no nginx change at all.
       - "3001:3000"
       # Forgejo's built-in SSH server. Unused by the fleet (every gated remote
-      # is http://forgejo.nas/...), kept for parity so a copied app.ini that
+      # is http://forgejo.rig/...), kept for parity so a copied app.ini that
       # advertises it is not lying.
       - "2222:2222"
 
