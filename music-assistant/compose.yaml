@@ -13,9 +13,13 @@
 # 8095 web UI (dns: only advertises 8095 -- 8097 is LAN-internal, players
 # reach it directly, no proxy hop).
 #
-# Pinned to :2.10.1, the version already running on the NAS (verified live
-# 2026-09-10, Home/Music-Assistant-Setup) -- not :latest, matching every
-# other fleet-vendor-stacks image.
+# Pinned (not :latest, matching every other fleet-vendor-stacks image).
+# 2.10.1 (the version carried over from the NAS) regressed Sonos playback:
+# 30s "acquiring playback lock" stalls, 404 retry storms from the Move on
+# every track change, laggy seek/skip. 2.10.2-2.10.4 carry the fixes
+# (Sonos seek applies immediately, next-track enqueue, "cutting out a
+# couple of tracks in", Sonos events blocking the event loop). Bumped
+# 2026-09-18, Home/Music-Assistant-Setup.
 #
 # No music-library NFS mount: MA has no filesystem provider configured on
 # the NAS today (checked Home/Music-Assistant-Setup 2026-09-10) -- every
@@ -27,7 +31,7 @@
 # something to stage now.
 services:
   music-assistant:
-    image: ghcr.io/music-assistant/server:2.10.1
+    image: ghcr.io/music-assistant/server:2.10.4
     container_name: music-assistant-server
     restart: unless-stopped
     network_mode: host
