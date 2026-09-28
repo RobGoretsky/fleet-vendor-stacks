@@ -47,12 +47,13 @@ config.
 
 ## Git remote
 
-The config dir is a `homeassistant-config` git checkout. The box's `svc`
-user has an HTTPS GitHub credential helper but no SSH key, so the
-migrated checkout's remote must be switched from
-`git@github.com:...` to `https://github.com/RobGoretsky/homeassistant-config.git`
-as part of the copy (runbook §C). The nightly autocommit DAG moves to
-`dags-robstinybox/ha-git-backup.yaml` at the same time.
+The config dir is a `homeassistant-config` git checkout whose origin is
+`git@forgejo.rig-homeassistant-config:robg/homeassistant-config.git` --
+Forgejo SSH on `:2222` with svc's single-repo deploy key
+(`dagu-dags/scripts/bootstrap-robstinybox.sh` §8c converges it). The repo is
+unprotected on Forgejo (a nightly snapshot of live state, not authored
+source) and push-mirrors to its GitHub twin. The nightly autocommit is
+`dagu-dags/dags-robstinybox/ha-git-backup.yaml`.
 
 ## Rollback
 
