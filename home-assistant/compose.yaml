@@ -4,7 +4,7 @@
 # registry.yaml points here). Verb: docker compose --env-file ~/fleet.env
 # up -d --build (--build is a no-op -- no Dockerfile in this stack).
 #
-# Three services, all on network_mode: host:
+# Four services, all on network_mode: host:
 #   homeassistant -- the HA core. Host network because its integrations
 #     (HomeKit controller, Sonos, Chromecast) rely on mDNS/SSDP discovery
 #     on the LAN, which a bridge network can't pass through.
@@ -15,6 +15,8 @@
 #   ring-mqtt -- bridges Ring devices into MQTT. Host network for the same
 #     localhost:1883 reason, plus go2rtc (bundled) needs LAN access for
 #     camera streams.
+#   matter-server -- HA's local Matter controller; rationale on the service
+#     itself below.
 #
 # APPDATA_ROOT = local box NVMe config (HA config git checkout, ring-mqtt
 # state, and since wave 9 the kitchen photo pool). MEDIA_ROOT = NAS
@@ -60,3 +62,33 @@ services:
       - mosquitto
     volumes:
       - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/ring-mqtt:/data
+  # matter-server -- HA's local Matter controller (matterjs-server, the
+  # successor to the archived python-matter-server). HA's Matter integration
+  # talks to it over WebSocket at ws://127.0.0.1:5580/ws. Host network: Matter
+  # commissioning and operation are IPv6 multicast (mDNS) + Thread-mesh
+  # routing, which a bridge network can't pass. The host must also learn the
+  # M100's route to the Thread mesh (sysctl accept_ra=2 +
+  # accept_ra_rt_info_max_plen=64 -- the gap that sank the NAS attempt; see
+  # Obsidian Home/IKEA Klippbok Water Sensors §IPv6 route). BLE commissioning
+  # goes through the host's bluetoothd over D-Bus (hci0 on the box), hence
+  # the /run/dbus mount + NOBLE_BINDINGS; it degrades to no-BLE if the host
+  # has no bluetooth service running.
+  # /data holds the fabric credentials: lose it and every paired device
+  # must be factory-reset and re-paired. It sits under APPDATA_ROOT, so the
+  # nightly box-backup (this entry is `backup: hot`) mirrors it to the NAS.
+  # Runs as root in-container (like homeassistant): the image's default uid
+  # 1000 can't write a bind mount the docker daemon creates root-owned.
+  matter-server:
+    image: ghcr.io/matter-js/matterjs-server:stable
+    container_name: matter-server
+    restart: unless-stopped
+    network_mode: host
+    user: "0:0"
+    environment:
+      - TZ=America/New_York
+      - NOBLE_BINDINGS=dbus
+      - BLUETOOTH_ADAPTER=0
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/matter-server:/data
+      - /run/dbus:/run/dbus:ro
+    command: ["--storage-path", "/data", "--port", "5580"]
