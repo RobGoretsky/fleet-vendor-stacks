@@ -4,7 +4,7 @@
 # registry.yaml points here). Verb: docker compose --env-file ~/fleet.env
 # up -d --build (--build is a no-op -- no Dockerfile in this stack).
 #
-# Four services, all on network_mode: host:
+# Five services, four on network_mode: host (zwave-js-ui is bridged):
 #   homeassistant -- the HA core. Host network because its integrations
 #     (HomeKit controller, Sonos, Chromecast) rely on mDNS/SSDP discovery
 #     on the LAN, which a bridge network can't pass through.
@@ -92,3 +92,29 @@ services:
       - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/matter-server:/data
       - /run/dbus:/run/dbus:ro
     command: ["--storage-path", "/data", "--port", "5580"]
+  # zwave-js-ui -- the Z-Wave controller for the Home Assistant Connect
+  # ZWA-2 stick (SmartThings decom, Obsidian Tasks/Projects/SmartThings to
+  # ZWA-2 ZBT-2 Migration). HA's Z-Wave JS integration talks to it at
+  # ws://127.0.0.1:3000; the admin UI is zwave.rig (nginx -> 127.0.0.1:8091).
+  # Bridge network, not host: unlike Matter it needs no multicast, and
+  # publishing both ports on loopback only keeps the unauthenticated-by-
+  # default UI and the control socket off the LAN. The stick is mapped by
+  # its stable by-id path (ttyACM0 can renumber across reboots). /usr/src/
+  # app/store holds the network keys and NVM backups: lose it and every
+  # device must be re-included. Under APPDATA_ROOT so the hot box-backup
+  # mirrors it, like matter-server above.
+  zwave-js-ui:
+    image: zwavejs/zwave-js-ui:11.24.2
+    container_name: zwave-js-ui
+    restart: unless-stopped
+    tty: true
+    stop_signal: SIGINT
+    environment:
+      - TZ=America/New_York
+    devices:
+      - /dev/serial/by-id/usb-Nabu_Casa_ZWA-2_1CDBD45B3F78-if00:/dev/zwave
+    volumes:
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/zwave-js-ui:/usr/src/app/store
+    ports:
+      - "127.0.0.1:8091:8091"
+      - "127.0.0.1:3000:3000"
