@@ -19,7 +19,7 @@ copy, which is the whole of the bring-up.
 
 **Everything that matters is in the data dir.** The GitHub twins mirror repo
 *content* and nothing else -- users, access tokens, branch protection rules,
-the two system webhooks and their `dagu_wh_` tokens, and the push-mirror
+the system webhooks (fleet-deploy's `dagu_wh_` tokens, triage's `forgejo-hook-token` PR hook), and the push-mirror
 rows (plus the mirror PAT, which lives in a `push_mirror_<id>` git remote
 inside each bare repo) exist only here. `app.ini` -- and with it
 `SECRET_KEY`, `INTERNAL_TOKEN` and the JWT secrets that make those tokens

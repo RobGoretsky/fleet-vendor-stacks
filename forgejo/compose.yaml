@@ -69,7 +69,7 @@ services:
       # unchanged the whole time.
       #
       # NOT the CD trigger. The two system webhooks' target URLs
-      # (192.168.1.200:8181, dagu.box) are rows in Forgejo's DB, and
+      # (192.168.1.200:8181, dagu.box) -- plus triage.box's PR hook -- are rows in Forgejo's DB, and
       # ALLOWED_HOST_LIST below is what gates them -- neither is derived
       # from ROOT_URL. Verified after the flip per the runbook's smoke test.
       - FORGEJO__server__ROOT_URL=http://forgejo.rig/
@@ -83,8 +83,11 @@ services:
       #             the box's nginx by name, resolved by extra_hosts below);
       # 192.168.1.201 = what dagu.box resolves to, allowlisted as well since
       #             Forgejo checks the resolved address too.
+      # triage.box = the triage broker's POST /hooks/forgejo (pull_request
+      #             events -> crh send + incident updates); same nginx path
+      #             as dagu.box, 127.0.0.1:8312 behind it.
       # An env change here needs `up -d`, not `restart`.
-      - FORGEJO__webhook__ALLOWED_HOST_LIST=192.168.1.200,192.168.1.201,dagu.box
+      - FORGEJO__webhook__ALLOWED_HOST_LIST=192.168.1.200,192.168.1.201,dagu.box,triage.box
     extra_hosts:
       # Still correct after the move, but it now means something different:
       # a container on the box reaching its OWN host's nginx over the bridge.
@@ -92,6 +95,9 @@ services:
       # bridge, same host): curl -H "Host: dagu.box" http://192.168.1.201/
       # -> 200. Re-confirm from this container at cutover anyway.
       - "dagu.box:192.168.1.201"
+      # Verified 2026-10-07 from the claude-remote-host container:
+      # curl -H "Host: triage.box" http://192.168.1.201/health -> 401 (triage, token-gated).
+      - "triage.box:192.168.1.201"
 
     volumes:
       # The whole migration in one line. Ports and paths INSIDE the container
