@@ -76,10 +76,10 @@ ro for the two external libraries) -- they must exist on the NAS before
 `POSTGRES_PASSWORD_FILE` / `DB_PASSWORD_FILE` (both natively supported --
 Immich's own `_FILE`-suffix convention, verified against
 docs.immich.app/install/environment-variables) point at
-`/home/svc/.secrets/immich-db-password`, a single-line file with the same
-password the NAS `.env` already has for `DB_PASSWORD` (copy it verbatim so
-the restored dump's role password matches -- see the pg_dump/restore
-section in `Tech-Learning/Phase2-Sitting-1` §3). No password lives in this
+`${APPDATA_ROOT}/secrets/services/immich-db-password`, a single-line file
+rendered by fleet-deploy from dagu-dags `secrets/services/` (rotate with
+`robapp secret rotate immich-db-password` plus an `ALTER USER` in Postgres;
+see its `reset` entry in dagu-dags `secrets.yaml`). No password lives in this
 repo.
 
 ## Image pins
