@@ -28,7 +28,7 @@
 # container regardless, so container-side ownership is unaffected.
 services:
   homeassistant:
-    image: homeassistant/home-assistant:2026.1.2
+    image: homeassistant/home-assistant:2026.10.0
     container_name: homeassistant
     restart: unless-stopped
     network_mode: host
