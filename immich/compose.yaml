@@ -85,7 +85,7 @@ services:
       - TZ=America/New_York
     volumes:
       - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/immich/postgres:/var/lib/postgresql/data
-      - /home/svc/.secrets/immich-db-password:/run/secrets/immich-db-password:ro
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/secrets/services/immich-db-password:/run/secrets/immich-db-password:ro
     shm_size: 128mb
     networks: [immich-net]
 
@@ -127,7 +127,7 @@ services:
       - ${IMMICH_ROB_PHOTOS_MOUNT:?set IMMICH_ROB_PHOTOS_MOUNT in ~/fleet.env}:/mnt/photo:ro
       - ${IMMICH_PAM_PHOTOS_MOUNT:?set IMMICH_PAM_PHOTOS_MOUNT in ~/fleet.env}:/mnt/pam-photos:ro
       - /etc/localtime:/etc/localtime:ro
-      - /home/svc/.secrets/immich-db-password:/run/secrets/immich-db-password:ro
+      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/secrets/services/immich-db-password:/run/secrets/immich-db-password:ro
     ports:
       - "2283:2283"
     networks: [immich-net]
