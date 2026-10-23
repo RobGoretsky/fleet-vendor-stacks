@@ -26,9 +26,19 @@
 # path lives under /config (see linuxserver docs), and /config is already
 # the APPDATA_ROOT bind below -- on the box's local NVMe -- so transcode
 # temp files land on NVMe automatically with no extra mount.
+#
+# Image: the 12.x line on an Ubuntu 26.04 (resolute) base. Its
+# ca-certificates (20260816ubuntu0.26.04.1) blacklists the eMudhra
+# "emSign ECC Root CA - G3" root (LP #2171507); .NET reads the OS trust
+# store, so the base image is where that fix lives. The 12.0 DB migration is
+# one-way: going back to 10.11 means restoring a pre-upgrade backup of
+# ${APPDATA_ROOT}/jellyfin/config, not just reverting this tag. 12.0 also
+# turns legacy auth headers off (X-Emby-Token, X-MediaBrowser-Token, the
+# api_key query param), so clients must send `Authorization: MediaBrowser
+# Token=...` or `?ApiKey=`.
 services:
   jellyfin:
-    image: lscr.io/linuxserver/jellyfin:10.11.11ubu2404-ls37
+    image: lscr.io/linuxserver/jellyfin:12.3ubu2604-ls56
     container_name: jellyfin
     restart: unless-stopped
     ports: ["8096:8096", "7359:7359/udp"]
