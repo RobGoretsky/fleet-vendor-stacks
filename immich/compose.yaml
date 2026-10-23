@@ -71,6 +71,10 @@ services:
     networks: [immich-net]
 
   database:
+    # Same image as Immich's own v3.3.5 example compose (unchanged since
+    # v2.7.5). The DB is already on VectorChord, so v3's pgvecto.rs removal
+    # needs nothing here; the pgvectors0.2.0 half stays only so pre-VectorChord
+    # dumps remain restorable (upstream's guidance).
     image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
     container_name: immich_postgres
     restart: unless-stopped
@@ -90,9 +94,10 @@ services:
     networks: [immich-net]
 
   immich-machine-learning:
-    image: ghcr.io/immich-app/immich-machine-learning:v2.7.5@sha256:a2501141440f10516d329fdfba2c68082e19eb9ba6016c061ac80d23beadf7f3
+    image: ghcr.io/immich-app/immich-machine-learning:v3.3.5@sha256:5b28c9352c8374b8a1ed96fbdd8d6755fea6e43510ec43fdf6538aa02ea40f56
     container_name: immich_machine_learning
     restart: unless-stopped
+    # v3's numpy 2.4 needs an x86-64-v2 CPU; the box's i5-8400T is v3-capable.
     depends_on:
       mount-guard:
         condition: service_completed_successfully
@@ -103,7 +108,7 @@ services:
     networks: [immich-net]
 
   immich-server:
-    image: ghcr.io/immich-app/immich-server:v2.7.5@sha256:c15bff75068effb03f4355997d03dc7e0fc58720c2b54ad6f7f10d1bc57efaa5
+    image: ghcr.io/immich-app/immich-server:v3.3.5@sha256:485d546a2e31d6a8b4db8423fcba5c109de8c218d93410af115fd1ccfc4352a6
     container_name: immich_server
     restart: unless-stopped
     depends_on:

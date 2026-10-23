@@ -84,15 +84,37 @@ repo.
 
 ## Image pins
 
-Pinned by digest (fleet's no-`:latest` rule), resolved 2026-09-10:
+Pinned by digest (fleet's no-`:latest` rule; multi-arch index digests),
+resolved 2026-10-23:
 
 | service | image:tag | digest |
 |---|---|---|
-| immich-server | `v2.7.5` | `sha256:c15bff75068e...efaa5` |
-| immich-machine-learning | `v2.7.5` | `sha256:a2501141440f...adf7f3` |
+| immich-server | `v3.3.5` | `sha256:485d546a2e31...4352a6` |
+| immich-machine-learning | `v3.3.5` | `sha256:5b28c9352c83...a40f56` |
 | postgres | `14-vectorchord0.4.3-pgvectors0.2.0` | `sha256:bcf6335719...b1c23` |
 | redis (valkey) | `9` | `sha256:c123e3715db6...708e1d` |
 
-Same tags as the NAS's current `.env` (server/ML floating on `release`,
-NAS-pinned today at `2.7.5` per the wave 8 prep primer) -- **PIN v2.7.5**,
-don't jump versions during a storage migration.
+Postgres and valkey match Immich's own v3.3.5 example compose
+(`docker/docker-compose.yml`) digest for digest. v3.3.5 is the first release
+whose ML image ships certifi 2026.10.19 (the eMudhra/emSign "ECC Root CA - G3"
+distrust); verified in the pinned image.
+
+**Upgrading.** Server and ML always move together, to the same tag. The
+server runs its own schema migrations on first start against whatever is in
+Postgres, and they are one-way -- an older image will not start on a migrated
+DB, so rollback is a restore of a pre-upgrade dump, not a tag revert. Before
+merging a bump: take a fresh dump (below), update the phones' Immich apps
+first on a major bump (the server only supports clients of its own major
+version), and read the release notes for every major in between.
+
+```
+ssh robstinybox "sudo -u svc bash -c 'docker exec -i immich_postgres pg_dumpall --clean --if-exists -U immich | gzip > /home/svc/appdata/immich/immich-dump-pre-upgrade-\$(date +%F).sql.gz'"
+```
+
+That lands next to the live data on box NVMe; Immich's own nightly dumps in
+the NFS library's `backups/` are the off-box copy.
+
+The DB is on VectorChord (the `ghcr.io/immich-app/postgres` image, no
+`DB_VECTOR_EXTENSION` set), so v3's removal of pgvecto.rs needs no action
+here. Anything that queries Immich's Postgres directly (kitchen photos,
+vacation-finder) is coupled to its schema and can break on any minor release.
