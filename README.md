@@ -26,7 +26,7 @@ update is a conscious PR that bumps the pin.
 
 | Subdir | Host | What |
 |---|---|---|
-| `arr-stack/` | robstinybox | The *arr media-automation fleet (sabnzbd, prowlarr, sonarr, radarr, lazylibrarian, audiobookshelf, seerr) -- SQLite configs on the box NVMe (`${APPDATA_ROOT}`), media over NFS (`${MEDIA_ROOT}`). Cutover runbook: Tech-Learning/Wave1-arr-Cutover. |
+| `arr-stack/` | robstinybox | The *arr media-automation fleet (sabnzbd, prowlarr, sonarr, radarr, lazylibrarian, seerr) -- SQLite configs on the box NVMe (`${APPDATA_ROOT}`), media over NFS (`${MEDIA_ROOT}`). Cutover runbook: Tech-Learning/Wave1-arr-Cutover. |
 | `docker-ro-proxy/` | nas + robstinybox | GET-only docker socket proxy so the fleet cockpit can read container state on every fleet host, not just the one it runs on. Design: Tech-Learning/Fleet-Cockpit-Multihost-Docker. |
 | `home-assistant/` | robstinybox | Home Assistant core + mosquitto (MQTT, loopback-only) + ring-mqtt, migrated from the NAS. Config is a git checkout on `${APPDATA_ROOT}`, backups on NFS `${MEDIA_ROOT}`. Cutover runbook: Tech-Learning/Wave3-HA-Cutover. |
 | `adguard-home/` | nas | Fleet DNS server, host network (deletes the docker-proxy UDP hairpin so containers can resolve fleet names). Cutover runbook: Tech-Learning/Wave3-HA-Cutover §B. |

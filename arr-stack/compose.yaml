@@ -58,18 +58,6 @@ services:
       - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/arr-stack/lazylibrarian/config:/config
       - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}:/data
     networks: [arr-net]
-  audiobookshelf:
-    image: ghcr.io/advplyr/audiobookshelf:2.32.1
-    container_name: audiobookshelf
-    restart: unless-stopped
-    ports: ["13378:80"]
-    environment: [TZ=America/New_York]
-    volumes:
-      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/arr-stack/audiobookshelf/config:/config
-      - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/arr-stack/audiobookshelf/metadata:/metadata
-      - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}/media/audiobooks:/audiobooks
-      - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}/media/books:/books
-    networks: [arr-net]
   seerr:
     image: ghcr.io/seerr-team/seerr:v3.5.1
     container_name: seerr
