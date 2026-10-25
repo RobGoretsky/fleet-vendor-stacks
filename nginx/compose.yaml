@@ -34,7 +34,7 @@
 # body for the one-time file copy).
 services:
   nginx:
-    image: nginx:1.27.4-alpine
+    image: nginx:1.31.8-alpine
     container_name: nginx
     restart: unless-stopped
     network_mode: host
