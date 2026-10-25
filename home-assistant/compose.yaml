@@ -28,7 +28,7 @@
 # container regardless, so container-side ownership is unaffected.
 services:
   homeassistant:
-    image: homeassistant/home-assistant:2026.10.0
+    image: homeassistant/home-assistant:2026.10.4
     container_name: homeassistant
     restart: unless-stopped
     network_mode: host
@@ -47,7 +47,7 @@ services:
       # HA's side.
       - ${APPDATA_ROOT:?set APPDATA_ROOT in ~/fleet.env}/homeassistant/www-photos:/config/www/photos:ro
   mosquitto:
-    image: eclipse-mosquitto:2.0.14
+    image: eclipse-mosquitto:2.0.22
     container_name: mosquitto
     restart: unless-stopped
     network_mode: host
@@ -79,7 +79,7 @@ services:
   # Runs as root in-container (like homeassistant): the image's default uid
   # 1000 can't write a bind mount the docker daemon creates root-owned.
   matter-server:
-    image: ghcr.io/matter-js/matterjs-server:stable
+    image: ghcr.io/matter-js/matterjs-server:1.5.5
     container_name: matter-server
     restart: unless-stopped
     network_mode: host
@@ -104,7 +104,7 @@ services:
   # device must be re-included. Under APPDATA_ROOT so the hot box-backup
   # mirrors it, like matter-server above.
   zwave-js-ui:
-    image: zwavejs/zwave-js-ui:11.24.2
+    image: zwavejs/zwave-js-ui:11.25.1
     container_name: zwave-js-ui
     restart: unless-stopped
     tty: true
