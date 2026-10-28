@@ -46,7 +46,7 @@ services:
     # `16-rootless`; as of 2026-09-09 both tags resolve to the same digest
     # (sha256:72760827...e034e), so pinning is a no-op today and an upgrade
     # becomes a conscious PR from here on.
-    image: codeberg.org/forgejo/forgejo:16.0.3-rootless
+    image: codeberg.org/forgejo/forgejo:16.0.7-rootless
     container_name: forgejo
     restart: unless-stopped
 

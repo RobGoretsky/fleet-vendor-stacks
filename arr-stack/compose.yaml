@@ -20,7 +20,7 @@ services:
       - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}:/data
     networks: [arr-net]
   prowlarr:
-    image: lscr.io/linuxserver/prowlarr:2.3.0.5236-ls137
+    image: lscr.io/linuxserver/prowlarr:2.7.0.5723-ls166
     container_name: prowlarr
     restart: unless-stopped
     ports: ["9696:9696"]
@@ -39,7 +39,7 @@ services:
       - ${MEDIA_ROOT:?set MEDIA_ROOT in ~/fleet.env}:/data
     networks: [arr-net]
   radarr:
-    image: lscr.io/linuxserver/radarr:6.4.4.10685-ls323
+    image: lscr.io/linuxserver/radarr:6.4.4.10685-ls324
     container_name: radarr
     restart: unless-stopped
     ports: ["7878:7878"]
