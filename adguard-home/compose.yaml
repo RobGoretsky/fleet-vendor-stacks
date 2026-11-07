@@ -17,7 +17,7 @@
 # flip itself: Obsidian Tech-Learning/Wave3-HA-Cutover §B.
 services:
   adguardhome:
-    image: adguard/adguardhome:v0.107.79
+    image: adguard/adguardhome:v0.107.80
     container_name: adguardhome
     restart: unless-stopped
     network_mode: host
